@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom Video SDK Standalone App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.8.6/jsrsasign-all-min.js"></script>
+    <script src="https://source.zoom.us/videosdk/zoom-video-2.1.10.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <style>
+       #video-container { width: 100%; height: 500px; background: #000; display: flex; flex-wrap: wrap; }
+        .video-box { width: 200px; height: 150px; margin: 5px; background: #333; position: relative; }
+        .video-box video { width: 100%; height: 100%; }
+        .video-box span { position: absolute; top: 5px; left: 5px; color: white; background: rgba(0, 0, 0, 0.5); padding: 2px 5px; }
+     </style>
+</head>
+<body>
+    <h1>Zoom Video SDK Standalone App</h1>
+    <button onclick="joinSession()">Join Zoom Session</button>
+    <button onclick="leaveSession()">Leave Zoom Session</button>
+    <div id="video-container"></div>
+    
+    <script>
+        const SDK_KEY = 'XX'; // Replace with your Zoom SDK Key
+        const SDK_SECRET = 'XX'; // Replace with your Zoom SDK Secret
+        const SESSION_NAME = 'ajitha3008';
+        const USER_ID = '12345';
+        const ROLE = 1; // 1 = Host, 0 = Attendee
+        const USER_NAME = 'John';
+        const PWD = '12345';
+
+        var ZoomVideo;
+        var client;
+        var stream;
+
+        function generateToken() {
+            const header = { alg: 'HS256', typ: 'JWT' };
+            const payload = {
+                app_key: SDK_KEY,
+                tpc: SESSION_NAME,
+                role_type: ROLE,
+                geo_regions: "US,AU,CA,IN,CN,BR,MX,HK,SG,JP,DE,NL",
+                version: 1,
+                pwd: PWD,
+                user_identity: "aj",
+                session_key: SESSION_NAME,
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + 3600,
+            };
+            return KJUR.jws.JWS.sign('HS256', JSON.stringify(header), JSON.stringify(payload), SDK_SECRET);
+        }
+
+        async function joinSession() {
+            console.log('Initializing Zoom SDK...');
+            ZoomVideo = window.WebVideoSDK.default;
+            client = ZoomVideo.createClient();
+
+            try {
+                await client.init('en-US', 'CDN', { leaveOnPageUnload: true, patchJsMedia: true, stayAwake: true, enableLog: true });
+                console.log('Zoom SDK Initialized');
+                
+                const token = generateToken();
+                console.log(token);
+                console.log(SESSION_NAME);
+                console.log(USER_NAME);
+                console.log(PWD);
+                await client.join(SESSION_NAME, token, USER_NAME, PWD);
+                console.log('Joined Zoom Session');
+                
+                stream = client.getMediaStream();
+                startVideo(USER_ID, USER_NAME);
+            } catch (error) {
+                console.error('Zoom SDK Initialization Error:', error);
+            }
+        }
+
+        function leaveSession() {
+            if (client) {
+                client.leave();
+                console.log('Left Zoom Session');
+                document.getElementById('video-container').innerHTML = '';
+            }
+        }
+        
+        function startVideo(userId, userName) {
+            if (stream) {
+                if (!document.getElementById(`video-${userId}`)) {
+                    const videoBox = document.createElement('div');
+                    videoBox.classList.add('video-box');
+                    videoBox.id = `video-${userId}`;
+
+                    const videoElement = document.createElement('video');
+                    videoElement.autoplay = true;
+
+                    const nameTag = document.createElement('span');
+                    nameTag.innerText = userName;
+
+                    videoBox.appendChild(videoElement);
+                    videoBox.appendChild(nameTag);
+                    document.getElementById('video-container').appendChild(videoBox);
+                    
+                    stream.startVideo({ videoElement, userId });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
